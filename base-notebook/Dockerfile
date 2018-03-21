@@ -12,7 +12,9 @@ USER root
 # Install all OS dependencies for notebook server that starts but lacks all
 # features (e.g., download as all possible file formats)
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get -yq dist-upgrade \
+RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list \
+ && sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list \
+ && apt-get update && apt-get -yq dist-upgrade \
  && apt-get install -yq --no-install-recommends \
     wget \
     bzip2 \
