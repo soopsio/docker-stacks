@@ -22,6 +22,9 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list \
     sudo \
     locales \
     fonts-liberation \
+    pkg-config \
+    libcairo2-dev \
+    gcc g++ \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
@@ -43,7 +46,7 @@ ENV CONDA_DIR=/opt/conda \
     LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8
-ENV PATH=$CONDA_DIR/bin:$PATH \
+ENV PATH=$CONDA_DIR/bin:$CONDA_DIR/envs/py2/bin:$PATH \
     HOME=/home/$NB_USER
 
 ADD fix-permissions /usr/local/bin/fix-permissions
@@ -63,20 +66,37 @@ RUN mkdir /home/$NB_USER/work && \
     fix-permissions /home/$NB_USER
 
 # Install conda as jovyan and check the md5 sum provided on the download site
-ENV MINICONDA_VERSION 4.3.30
-RUN cd /tmp && \
-    wget --quiet https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-    echo "0b80a152332a4ce5250f3c09589c7a81 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
+ENV MINICONDA_VERSION 4.4.10
+#ENV MINICONDA_VERSION 4.3.30
+RUN set -x && cd /tmp && \
+    wget --quiet https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
     /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p $CONDA_DIR && \
     rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
     $CONDA_DIR/bin/conda config --system --prepend channels conda-forge && \
     $CONDA_DIR/bin/conda config --system --set auto_update_conda false && \
     $CONDA_DIR/bin/conda config --system --set show_channel_urls true && \
+    $CONDA_DIR/bin/conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/ && \
+    $CONDA_DIR/bin/conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/ && \
+    $CONDA_DIR/bin/conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/ && \
+    $CONDA_DIR/bin/conda config --set show_channel_urls yes && \
     $CONDA_DIR/bin/conda update --all --quiet --yes && \
     conda clean -tipsy && \
     rm -rf /home/$NB_USER/.cache/yarn && \
     fix-permissions $CONDA_DIR && \
+    fix-permissions /home/$NB_USER 
+
+# update conda to 4.5.0
+RUN cd /tmp/ && \
+    wget https://anaconda.org/conda-canary/conda/4.5.0/download/linux-64/conda-4.5.0-py36_0.tar.bz2 && \
+    tar jvxf conda-4.5.0-py36_0.tar.bz2  -C $CONDA_DIR && \
+    sed -i 's/anaconda1anaconda2anaconda3/conda/g' /opt/conda/bin/conda && \
+    conda create -y -n py2 python=2.7 && \
+    conda clean -tipsy && \
+    rm -rf /home/$NB_USER/.cache/yarn && \
+    rm -f conda-4.5.0-py36_0.tar.bz2 && \
+    fix-permissions $CONDA_DIR && \
     fix-permissions /home/$NB_USER
+
 
 # Install Jupyter Notebook and Hub
 # Issue #589: Force tornado < 5.0 until various zmq dependencies are resolved upstream
@@ -85,8 +105,8 @@ RUN conda install --quiet --yes \
     'jupyterhub=0.8.*' \
     'jupyterlab=0.31.*' \
     'tornado=4.*' \
-    && conda clean -tipsy && \
-    jupyter labextension install @jupyterlab/hub-extension@^0.8.0 && \
+    && conda clean -tipsy 
+RUN npm config set python $CONDA_DIR/envs/py2/bin/python && jupyter labextension install @jupyterlab/hub-extension@^0.8.0 && \
     npm cache clean && \
     rm -rf $CONDA_DIR/share/jupyter/lab/staging && \
     rm -rf /home/$NB_USER/.cache/yarn && \
